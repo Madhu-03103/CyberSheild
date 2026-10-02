@@ -32,6 +32,72 @@ async def lifespan(app: FastAPI):
     try:
         init_db()
         logger.info("Database initialized successfully")
+        
+        # Auto-populate sample data if database is empty and in demo mode
+        if settings.DEMO_MODE:
+            from app.database import SessionLocal
+            from app.models.user import User
+            db = SessionLocal()
+            try:
+                user_count = db.query(User).count()
+                if user_count == 0:
+                    logger.info("Database is empty. Populating with sample data...")
+                    from datetime import datetime, timedelta
+                    import random
+                    from app.models.user import User, UserRole
+                    from app.models.threat import ThreatEvent, URLScan, EmailScan, EventSource, Severity, ThreatType
+                    from app.models.incident import Incident, IncidentStatus, IncidentSeverity
+                    from app.models.indicator import Indicator, IndicatorType, Watchlist
+                    
+                    # Create sample users
+                    users = [
+                        User(email="admin@cybershield.ai", username="admin", 
+                             password_hash="$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5lFkJJZHlqLsq", 
+                             role=UserRole.ADMIN),
+                        User(email="analyst@cybershield.ai", username="analyst",
+                             password_hash="$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5lFkJJZHlqLsq",
+                             role=UserRole.ANALYST)
+                    ]
+                    for user in users:
+                        db.add(user)
+                    
+                    # Create sample threats
+                    for i in range(50):
+                        days_ago = random.randint(0, 7)
+                        timestamp = datetime.utcnow() - timedelta(days=days_ago, hours=random.randint(0, 23))
+                        threat_type = random.choice([ThreatType.PHISHING, ThreatType.MALWARE, ThreatType.SUSPICIOUS, ThreatType.SAFE])
+                        event = ThreatEvent(
+                            event_id=f"EVT-{timestamp.strftime('%Y%m%d%H%M%S')}-{random.randint(10000, 99999)}",
+                            source=random.choice([EventSource.URL_SCANNER, EventSource.EMAIL_INSPECTOR, EventSource.ML_ENGINE]),
+                            event_type="DETECTION",
+                            timestamp=timestamp,
+                            severity=random.choice([Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]),
+                            threat_type=threat_type,
+                            entity=f"suspicious-domain-{i}.example.com",
+                            risk_score=random.randint(30, 99),
+                            confidence=random.uniform(0.75, 0.99),
+                            status="ACTIVE" if threat_type != ThreatType.SAFE else "RESOLVED"
+                        )
+                        db.add(event)
+                    
+                    # Create sample incidents
+                    for i in range(10):
+                        incident = Incident(
+                            incident_id=f"INC-2026-{1000 + i}",
+                            title=f"Security Incident #{i+1}",
+                            description="Automated detection of suspicious activity",
+                            status=random.choice([IncidentStatus.NEW, IncidentStatus.INVESTIGATING]),
+                            severity=random.choice([IncidentSeverity.HIGH, IncidentSeverity.MEDIUM]),
+                            created_at=datetime.utcnow() - timedelta(days=random.randint(0, 7))
+                        )
+                        db.add(incident)
+                    
+                    db.commit()
+                    logger.info("Sample data populated successfully")
+                else:
+                    logger.info(f"Database already has {user_count} users. Skipping sample data.")
+            finally:
+                db.close()
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
     
