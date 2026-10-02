@@ -1,0 +1,40 @@
+@echo off
+echo 🚀 Starting CyberShield AI Backend...
+echo.
+
+cd backend
+
+REM Check if virtual environment exists
+if not exist "venv" (
+    echo 📦 Creating virtual environment...
+    python -m venv venv
+)
+
+REM Activate virtual environment
+echo 🔧 Activating virtual environment...
+call venv\Scripts\activate.bat
+
+REM Install dependencies
+echo 📥 Installing dependencies...
+pip install -r requirements.txt
+
+REM Check if .env exists
+if not exist ".env" (
+    echo ⚙️  Creating .env file...
+    copy .env.example .env
+    echo ✏️  Please edit backend\.env with your configuration
+)
+
+REM Initialize database
+echo 🗄️  Initializing database...
+python init_db.py
+
+echo.
+echo ✅ Backend setup complete!
+echo.
+echo 🌐 Starting FastAPI server on http://localhost:8000
+echo 📚 API Documentation: http://localhost:8000/docs
+echo.
+
+REM Start the server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
